@@ -180,6 +180,10 @@
       tg.expand();
     }
 
+    // ከ URL ወይም ከ Telegram WebApp Context የሰውየውን Telegram ID መውሰድ
+    const urlParams = new URLSearchParams(window.location.search);
+    const userId = urlParams.get('userId') || tg?.initDataUnsafe?.user?.id;
+
     const socket = io("https://keno-server-r414.onrender.com");
 
     let selectedNumbers = [];
@@ -203,6 +207,23 @@
       9: { 9: 10000, 8: 1000, 7: 150, 6: 20, 5: 3 },
       10: { 10: 25000, 9: 2000, 8: 400, 7: 50, 6: 10, 5: 2 }
     };
+
+    // 🌐 Render ቦትህ Server ላይ ያለውን ባላንስ በ API መጥራት
+    async function fetchServerBalance() {
+      if (!userId) return;
+
+      try {
+        const response = await fetch(`https://ekeno-2.onrender.com/api/balance/${userId}`);
+        const data = await response.json();
+
+        if (data.success && data.balance !== undefined) {
+          userBalance = parseFloat(data.balance);
+          updateBalanceDisplay();
+        }
+      } catch (err) {
+        console.error("ባላንስ ከሴርቨር ማምጣት አልተቻለም:", err);
+      }
+    }
 
     function updateBalanceDisplay() {
       document.getElementById('balanceDisplay').innerText = `${userBalance.toFixed(2)} ETB`;
@@ -457,7 +478,9 @@
       }
     }
 
+    // App ሲከፈት ባላንሱን ማሳየት እና ከ Server መጥራት
     updateBalanceDisplay();
+    fetchServerBalance();
   </script>
 </body>
 </html>
