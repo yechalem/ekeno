@@ -1,9 +1,12 @@
-const TelegramBot = require('node-telegram-bot-api');
+// 1. የቴሌግራም ላይብረሪ ጥሪ አስተካክል
+const TelegramBotModule = require('node-telegram-bot-api');
+const TelegramBot = TelegramBotModule.default || TelegramBotModule;
 const express = require('express');
 
 const TOKEN = process.env.BOT_TOKEN || '8575247623:AAEbjBhY67yTBoNX3HKpblqncDEw_zwkQaA';
-const GAME_WEB_APP_URL = 'https://courageous-chimera-65cd3c.netlify.app'; // የ Keno ድረ-ገጽህ ሊንክ
+const GAME_WEB_APP_URL = 'https://courageous-chimera-65cd3c.netlify.app';
 
+// የቀረው የኮድህ ክፍል እንዳለ ይቀጥላል...
 // የቴሌግራም ቦት ማስጀመር
 const bot = new TelegramBot(TOKEN, { polling: true });
 
