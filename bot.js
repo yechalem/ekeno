@@ -1,5 +1,6 @@
-// 1. ላይብረሪዎችን መጥራት
-const TelegramBot = require('node-telegram-bot-api');
+// 1. የቴሌግራም ላይብረሪ ጥሪ አስተካክል
+const TelegramBotModule = require('node-telegram-bot-api');
+const TelegramBot = TelegramBotModule.default || TelegramBotModule;
 const http = require('http');
 
 // 2. የቴሌግራም ቦት Token
@@ -10,7 +11,7 @@ const bot = new TelegramBot(TOKEN, { polling: true });
 
 console.log('🤖 ቦቱ በትክክል ስራ ጀምሯል...');
 
-// 4. Render እንዳይዘጋው Dummy HTTP Server መፍጠር (Render Health Check እንዲያልፍ)
+// 4. Render እንዳይዘጋው Dummy HTTP Server መፍጠር
 const PORT = process.env.PORT || 10000;
 http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
