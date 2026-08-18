@@ -1,15 +1,16 @@
 {
-  "name": "es",
+  "name": "ekeno",
   "version": "1.0.0",
+  "description": "Telegram Keno Bot",
   "main": "bot.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node bot.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "engines": {
+    "node": "20.x"
+  },
   "dependencies": {
-    "node-telegram-bot-api": "^2.0.0"
+    "express": "^4.19.2",
+    "node-telegram-bot-api": "^0.66.0"
   }
 }
