@@ -1,48 +1,62 @@
-// 1. የቴሌግራም ላይብረሪ ጥሪ አስተካክል
-const TelegramBotModule = require('node-telegram-bot-api');
-const TelegramBot = TelegramBotModule.default || TelegramBotModule;
-const http = require('http');
+const TelegramBot = require('node-telegram-bot-api');
+const express = require('express');
 
-// 2. የቴሌግራም ቦት Token
 const TOKEN = process.env.BOT_TOKEN || '8575247623:AAEbjBhY67yTBoNX3HKpblqncDEw_zwkQaA';
+const GAME_WEB_APP_URL = 'https://your-keno-game.netlify.app'; // የ Keno ድረ-ገጽህ ሊንክ
 
-// 3. የቦት ኢንስታንስ መፍጠር
+// የቴሌግራም ቦት ማስጀመር
 const bot = new TelegramBot(TOKEN, { polling: true });
 
-console.log('🤖 ቦቱ በትክክል ስራ ጀምሯል...');
-
-// 4. Render እንዳይዘጋው Dummy HTTP Server መፍጠር
+// Render Health Check እንዳያቋርጠው Express Server መክፈት
+const app = express();
 const PORT = process.env.PORT || 10000;
-http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Bot is running successfully!');
-}).listen(PORT, () => {
-  console.log(`Server is listening on port ${PORT}`);
+
+app.get('/', (req, res) => {
+  res.send('Ethio Keno Bot is active!');
 });
 
-// 5. /start ሲባል የሚመልሰው መልእክት
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
+
+// /start ሲባል የሚወጣው ሜኑ
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
-  const firstName = msg.from.first_name || 'ወዳጄ';
+  const firstName = msg.from.first_name || 'ተጫዋች';
 
-  bot.sendMessage(
-    chatId,
-    `ሰላም ${firstName}! 👋\nወደ ekeno ቦት እንኳን ደህና መጡ።\n\nእንዴት ልረዳዎ እችላለሁ?`
-  );
+  const welcomeText = `ሰላም ${firstName}! 👋\nወደ **Ethio Keno Game** እንኳን ደህና መጡ።\n\nከታች ያሉትን አማራጮች በመጠቀም መጫወት ይችላሉ።`;
+
+  const keyboard = {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🎮 Start Game (መጫወት)', web_app: { url: GAME_WEB_APP_URL } }],
+        [
+          { text: '📥 Deposit (ገንዘብ ማስገባት)', callback_data: 'btn_deposit' },
+          { text: '📤 Withdraw (ገንዘብ ማውጣት)', callback_data: 'btn_withdraw' }
+        ],
+        [{ text: '⚙️ Admin', callback_data: 'btn_admin' }]
+      ]
+    },
+    parse_mode: 'Markdown'
+  };
+
+  bot.sendMessage(chatId, welcomeText, keyboard);
 });
 
-// 6. ማንኛውም መልእክት ሲላክለት የሚሰጠው ምላሽ
-bot.on('message', (msg) => {
-  const chatId = msg.chat.id;
-  const text = msg.text;
+// የቁልፎች ምላሽ
+bot.on('callback_query', (query) => {
+  const chatId = query.message.chat.id;
+  const data = query.data;
 
-  if (text && !text.startsWith('/start')) {
-    console.log(`ከ ${msg.from.first_name} የተላከ መልእክት፦ ${text}`);
-    bot.sendMessage(chatId, `እነሆ የላኩትን መልእክት ተቀብያለሁ፦ "${text}"`);
+  if (data === 'btn_deposit') {
+    bot.sendMessage(chatId, '📥 **Deposit:**\n\nበቴሌብር ወይም ባንክ ገቢ ያድርጉ።\n\n📱 Telebirr: 09xxxxxxxx\n💳 CBE: 1000xxxxxxxxx');
+  } else if (data === 'btn_withdraw') {
+    bot.sendMessage(chatId, '📤 **Withdraw:**\n\nየሚያወጡትን መጠን እና ስልክ ቁጥር ይጻፉ።');
+  } else if (data === 'btn_admin') {
+    bot.sendMessage(chatId, '⚙️ ይህ ክፍል ለአድሚን ብቻ የተፈቀደ ነው።');
   }
+
+  bot.answerCallbackQuery(query.id);
 });
 
-// 7. የፖሊንግ ስህተት እንዳይዘጋ ይከታተላል
-bot.on('polling_error', (error) => {
-  console.error('Polling Error:', error.code || error.message);
-});
+bot.on('polling_error', (err) => console.error(err));
