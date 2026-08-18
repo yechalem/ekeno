@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Ethio Keno Multiplayer</title>
+
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Socket.IO SDK -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+  <style>
+    :root {
+      --bg-dark: #0b141b;
+      --card-bg: #13222f;
+      --accent-green: #00e676;
+      --accent-cyan: #00e5ff;
+      --accent-yellow: #ffc107;
+      --border-color: #1e3243;
+      --text-main: #ffffff;
+      --text-muted: #8b9dc3;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-main); display: flex; flex-direction: column; align-items: center; padding: 6px; }
+
+    .top-bar { width: 100%; max-width: 420px; display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #070d13; font-size: 13px; position: relative; border-radius: 8px; margin-bottom: 6px; }
+    .brand { color: var(--accent-green); font-weight: 900; font-size: 16px; }
+    .balance { color: var(--accent-yellow); font-weight: bold; }
+    .menu-btn { background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; padding: 0 5px; }
+
+    .menu-dropdown {
+      display: none; position: absolute; top: 40px; right: 10px; background: var(--card-bg);
+      border: 1px solid var(--border-color); border-radius: 8px; width: 160px; z-index: 100;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+    .menu-item {
+      padding: 12px 16px; color: var(--text-main); font-size: 13px; font-weight: bold;
+      display: flex; align-items: center; gap: 8px; cursor: pointer; border-bottom: 1px solid var(--border-color);
+    }
+    .menu-item:last-child { border-bottom: none; }
+    .menu-item:hover { background: rgba(0,229,255,0.1); color: var(--accent-cyan); }
+
+    .modal-overlay {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); z-index: 200; justify-content: center; align-items: center;
+    }
+    .modal-content {
+      background: var(--card-bg); border: 1px solid var(--border-color); width: 90%; max-width: 380px;
+      max-height: 80vh; border-radius: 10px; padding: 15px; display: flex; flex-direction: column;
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
+    .modal-body { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+    .close-btn { background: #ff5252; border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+
+    .header-display {
+      width: 100%; max-width: 420px; background: radial-gradient(circle at center, #0f333c 0%, #0b141b 100%);
+      border: 1px solid var(--border-color); border-radius: 10px; padding: 10px;
+      display: flex; flex-direction: column; align-items: center; margin-bottom: 8px; min-height: 140px;
+    }
+    .top-info { width: 100%; display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+    
+    .current-ball {
+      width: 65px; height: 65px; border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #00e5ff, #005662);
+      border: 2px solid #fff; box-shadow: 0 0 15px #00e5ff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; font-weight: 900; color: #fff; margin: 6px 0;
+      animation: pop 0.4s ease-out;
+    }
+    @keyframes pop {
+      0% { transform: scale(0.3); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .drawn-balls-container { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-top: 5px; }
+    .drawn-ball { width: 26px; height: 26px; border-radius: 50%; background: var(--accent-cyan); color: #000; font-weight: bold; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+
+    .payout-box { text-align: center; margin-top: 10px; }
+    .possible-win { font-size: 14px; color: var(--accent-green); font-weight: bold; }
+
+    .grid-container { width: 100%; max-width: 420px; margin-bottom: 8px; }
+    .grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+    .num-btn {
+      aspect-ratio: 1; background: var(--card-bg); border: 1px solid var(--border-color);
+      color: #fff; font-weight: bold; font-size: 13px; border-radius: 4px; cursor: pointer;
+    }
+    .num-btn.selected { background: var(--accent-cyan); color: #000; border-color: #fff; }
+    .num-btn.drawn { background: var(--accent-yellow); color: #000; }
+
+    .controls-wrapper { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 6px; }
+    .bet-row { display: flex; gap: 6px; width: 100%; }
+    .control-btn { flex: 1; background: var(--card-bg); border: 1px solid var(--border-color); color: #fff; padding: 8px 0; font-weight: bold; border-radius: 4px; cursor: pointer; }
+    .bet-amount { width: 80px; text-align: center; background: #000; border: 1px solid var(--border-color); color: var(--accent-yellow); font-weight: bold; border-radius: 4px; }
+    .btn-play { width: 100%; background: var(--accent-green); color: #000; font-weight: 900; font-size: 16px; padding: 12px 0; border: none; border-radius: 6px; cursor: pointer; }
+
+    .tickets-feed { width: 100%; max-width: 420px; margin-top: 10px; }
+    .ticket-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 6px; padding: 8px; margin-bottom: 6px; font-size: 12px; }
+    .ticket-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .ticket-numbers { display: flex; flex-wrap: wrap; gap: 3px; margin: 4px 0; }
+    .ticket-num-box { background: #070d13; padding: 2px 6px; border-radius: 3px; color: #fff; font-weight: bold; }
+    .ticket-num-box.hit { background: var(--accent-green); color: #000; }
+    .ticket-footer { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 11px; }
+
+    .disabled-area { pointer-events: none; opacity: 0.6; }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <span class="brand">ETHIO KENO</span>
+    <span class="balance" id="balanceDisplay">0.00 ETB</span>
+    <button class="menu-btn" onclick="toggleMenu()">⋮</button>
+    
+    <div class="menu-dropdown" id="menuDropdown">
+      <div class="menu-item" onclick="openHistory()">📜 የታሪክ ዝርዝር</div>
+    </div>
+  </div>
+
+  <!-- History Pop-up Modal -->
+  <div class="modal-overlay" id="historyModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span style="font-weight: bold; color: var(--accent-cyan);">ያለፉ ጨዋታዎች ታሪክ</span>
+        <button class="close-btn" onclick="closeHistory()">X</button>
+      </div>
+      <div class="modal-body" id="historyList"></div>
+    </div>
+  </div>
+
+  <div class="header-display">
+    <div class="top-info">
+      <span id="timerText">ቆጣሪ: --:--</span>
+      <span id="drawProgress">0 / 20</span>
+    </div>
+
+    <div id="drawDisplayArea" style="display: none; flex-direction: column; align-items: center; width: 100%;">
+      <div class="current-ball" id="currentBall">-</div>
+      <div class="drawn-balls-container" id="drawnBallsList"></div>
+    </div>
+
+    <div id="payoutBox" class="payout-box">
+      <div class="possible-win" id="maxWin">ሊገኙ የሚችሉ ከፍተኛ ትርፍ: 0 ETB</div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-top:4px;" id="payoutMultipliers">ቁጥር ይምረጡ</div>
+    </div>
+  </div>
+
+  <div id="interactiveArea" style="width: 100%; max-width: 420px;">
+    <div class="grid-container">
+      <div class="grid" id="kenoGrid"></div>
+    </div>
+
+    <div class="controls-wrapper">
+      <div class="bet-row">
+        <button class="control-btn" onclick="adjustBet(-5)">-</button>
+        <input type="number" id="betAmount" class="bet-amount" value="5.00" readonly>
+        <button class="control-btn" onclick="adjustBet(5)">+</button>
+        <button class="control-btn" onclick="multiplyBet()">X2</button>
+        <button class="control-btn" onclick="clearSelection()">ማጽጃ</button>
+      </div>
+      
+      <button class="btn-play" id="playBtn" onclick="saveGame()">ይጫወቱ</button>
+    </div>
+  </div>
+
+  <div class="tickets-feed">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+      <span style="font-size: 12px; color: var(--text-muted);">በጋራ የተያዙ ቲኬቶች</span>
+    </div>
+    <div id="savedGamesList"></div>
+  </div>
+
+  <script>
+    // Telegram WebApp ን ማዘጋጀት
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+    }
+
+    const socket = io("https://keno-server-r414.onrender.com");
+
+    let selectedNumbers = [];
+    let currentBet = 5.00;
+    let drawnNumbers = [];
+    let isDrawing = false;
+    let activeTicketsCache = [];
+    
+    let userBalance = parseFloat(localStorage.getItem('keno_balance')) || 0.00;
+    const HISTORY_KEY = 'keno_history_games';
+
+    const PAYTABLE = {
+      1: { 1: 3.5 },
+      2: { 2: 10, 1: 1 },
+      3: { 3: 50, 2: 2 },
+      4: { 4: 100, 3: 5, 2: 1 },
+      5: { 5: 300, 4: 15, 3: 2 },
+      6: { 6: 1000, 5: 50, 4: 5, 3: 1 },
+      7: { 7: 2000, 6: 100, 5: 12, 4: 2 },
+      8: { 8: 5000, 7: 300, 6: 40, 5: 8, 4: 1 },
+      9: { 9: 10000, 8: 1000, 7: 150, 6: 20, 5: 3 },
+      10: { 10: 25000, 9: 2000, 8: 400, 7: 50, 6: 10, 5: 2 }
+    };
+
+    function updateBalanceDisplay() {
+      document.getElementById('balanceDisplay').innerText = `${userBalance.toFixed(2)} ETB`;
+      localStorage.setItem('keno_balance', userBalance);
+    }
+
+    function toggleMenu() {
+      const menu = document.getElementById('menuDropdown');
+      menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+    }
+
+    function openHistory() {
+      document.getElementById('menuDropdown').style.display = 'none';
+      renderHistory();
+      document.getElementById('historyModal').style.display = 'flex';
+    }
+
+    function closeHistory() {
+      document.getElementById('historyModal').style.display = 'none';
+    }
+
+    const grid = document.getElementById('kenoGrid');
+    for (let i = 1; i <= 80; i++) {
+      let btn = document.createElement('button');
+      btn.className = 'num-btn';
+      btn.innerText = i;
+      btn.id = `num-${i}`;
+      btn.onclick = () => toggleNumber(i);
+      grid.appendChild(btn);
+    }
+
+    function toggleNumber(n) {
+      if (isDrawing) return;
+      const btn = document.getElementById(`num-${n}`);
+      if (selectedNumbers.includes(n)) {
+        selectedNumbers = selectedNumbers.filter(x => x !== n);
+        btn.classList.remove('selected');
+      } else if (selectedNumbers.length < 10) {
+        selectedNumbers.push(n);
+        btn.classList.add('selected');
+      }
+      updateUI();
+    }
+
+    function clearSelection() {
+      if (isDrawing) return;
+      selectedNumbers = [];
+      document.querySelectorAll('.num-btn').forEach(b => b.classList.remove('selected'));
+      updateUI();
+    }
+
+    function adjustBet(val) {
+      if (isDrawing) return;
+      currentBet = Math.max(5, currentBet + val);
+      document.getElementById('betAmount').value = currentBet.toFixed(2);
+      updateUI();
+    }
+
+    function multiplyBet() {
+      if (isDrawing) return;
+      currentBet *= 2;
+      document.getElementById('betAmount').value = currentBet.toFixed(2);
+      updateUI();
+    }
+
+    function updateUI() {
+      const maxWin = document.getElementById('maxWin');
+      const multipliers = document.getElementById('payoutMultipliers');
+      let count = selectedNumbers.length;
+
+      if (count === 0) {
+        maxWin.innerText = "ሊገኙ የሚችሉ ከፍተኛ ትርፍ: 0 ETB";
+        multipliers.innerText = "ቁጥር ይምረጡ";
+      } else {
+        let spotRules = PAYTABLE[count];
+        let maxMultiplier = spotRules[count];
+        maxWin.innerText = `ሊገኙ የሚችሉ ከፍተኛ ትርፍ: ${(currentBet * maxMultiplier).toLocaleString()} ETB`;
+
+        let detailText = [];
+        for (let hit in spotRules) {
+          detailText.push(`${hit} የወጣላቸው: x${spotRules[hit]}`);
+        }
+        multipliers.innerText = detailText.join(" | ");
+      }
+    }
+
+    function saveGame() {
+      if (isDrawing) return alert("ጨዋታው ተጀምሯል! እባክዎን የዚህ ዙር እጣ እስኪያልቅ ይበቁ።");
+      if (selectedNumbers.length === 0) return alert("እባክዎን ቁጥር ይምረጡ!");
+      if (userBalance < currentBet) return alert("በቂ የሒሳብ መጠን የለዎትም! እባክዎን በቦቱ Deposit ያድርጉ።");
+
+      userBalance -= currentBet;
+      updateBalanceDisplay();
+
+      let playerName = tg?.initDataUnsafe?.user?.first_name || "ተጫዋች";
+
+      let newTicket = {
+        id: Date.now(),
+        playerName: playerName,
+        numbers: [...selectedNumbers],
+        bet: currentBet
+      };
+
+      socket.emit('buyTicket', newTicket);
+      clearSelection();
+    }
+
+    function renderSavedGames(tickets) {
+      activeTicketsCache = tickets || activeTicketsCache;
+      const list = document.getElementById('savedGamesList');
+      list.innerHTML = '';
+
+      if (activeTicketsCache.length === 0) {
+        list.innerHTML = '<div style="text-align:center; color: var(--text-muted); padding: 10px; font-size:12px;">ለዚህ ዙር የተያዘ ቲኬት የለም</div>';
+        return;
+      }
+
+      activeTicketsCache.forEach((g) => {
+        let hitsCount = 0;
+        let numBoxes = g.numbers.map(n => {
+          let isHit = drawnNumbers.includes(n);
+          if (isHit) hitsCount++;
+          return `<span class="ticket-num-box ${isHit ? 'hit' : ''}">${n}</span>`;
+        }).join('');
+
+        list.innerHTML += `
+          <div class="ticket-card">
+            <div class="ticket-header">
+              <span>👤 ${g.playerName}</span>
+              <span style="color: var(--accent-yellow);">ቁጥሮች (${g.numbers.length})</span>
+            </div>
+            <div class="ticket-numbers">${numBoxes}</div>
+            <div class="ticket-footer">
+              <span>መደብ: ${g.bet} ETB</span>
+              <span style="color: var(--accent-yellow);">${drawnNumbers.length > 0 ? 'ተዛማጅነት: ' + hitsCount + '/' + g.numbers.length : 'በመጠበቅ ላይ'}</span>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function renderHistory() {
+      const historyList = document.getElementById('historyList');
+      let history = JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
+
+      if (history.length === 0) {
+        historyList.innerHTML = '<div style="text-align:center; color: var(--text-muted); padding: 20px;">ምንም ያለፈ ታሪክ የለም</div>';
+        return;
+      }
+
+      historyList.innerHTML = history.map(item => `
+        <div style="background: #192a3a; padding: 8px; border-radius: 6px; font-size: 12px; border: 1px solid var(--border-color);">
+          <div style="display:flex; justify-content:space-between; color: var(--accent-cyan); font-weight:bold;">
+            <span>${item.date}</span>
+            <span style="color: ${item.won > 0 ? 'var(--accent-green)' : '#ff5252'};">${item.won > 0 ? '+' + item.won + ' ETB' : 'አላሸነፈም'}</span>
+          </div>
+          <div style="margin: 4px 0; font-size:11px; color: var(--text-muted);">የተያዙ ቁጥሮች: ${item.numbers.join(', ')}</div>
+          <div style="font-size:11px; color: var(--accent-yellow);">የወጡ ቁጥሮች: ${item.drawn.slice(0, 8).join(', ')}...</div>
+        </div>
+      `).join('');
+    }
+
+    socket.on('timerUpdate', (data) => {
+      let t = data.timerVal;
+      document.getElementById('timerText').innerText = `ቆጣሪ: 00:${t < 10 ? '0' + t : t}`;
+    });
+
+    socket.on('drawStarted', () => {
+      isDrawing = true;
+      drawnNumbers = [];
+      document.getElementById('interactiveArea').classList.add('disabled-area');
+      document.querySelectorAll('.num-btn').forEach(b => b.classList.remove('drawn'));
+      
+      document.getElementById('payoutBox').style.display = 'none';
+      document.getElementById('drawDisplayArea').style.display = 'flex';
+      document.getElementById('drawnBallsList').innerHTML = '';
+    });
+
+    socket.on('newDrawnNumber', (data) => {
+      let rand = data.number;
+      drawnNumbers.push(rand);
+
+      const currentBall = document.getElementById('currentBall');
+      currentBall.innerText = rand;
+      currentBall.style.animation = 'none';
+      currentBall.offsetHeight; 
+      currentBall.style.animation = 'pop 0.4s ease-out';
+
+      document.getElementById('drawnBallsList').innerHTML += `<div class="drawn-ball">${rand}</div>`;
+
+      let btn = document.getElementById(`num-${rand}`);
+      if (btn) btn.classList.add('drawn');
+
+      document.getElementById('drawProgress').innerText = `${data.count} / 20`;
+      renderSavedGames();
+    });
+
+    socket.on('updateTickets', (tickets) => {
+      renderSavedGames(tickets);
+    });
+
+    socket.on('gameReset', () => {
+      calculateWinningsAndArchive();
+
+      document.getElementById('drawDisplayArea').style.display = 'none';
+      document.getElementById('payoutBox').style.display = 'block';
+      document.getElementById('drawProgress').innerText = '0 / 20';
+      
+      isDrawing = false;
+      document.getElementById('interactiveArea').classList.remove('disabled-area');
+      
+      drawnNumbers = [];
+      renderSavedGames([]);
+    });
+
+    function calculateWinningsAndArchive() {
+      let myName = tg?.initDataUnsafe?.user?.first_name || "ተጫዋች";
+      let myTickets = activeTicketsCache.filter(t => t.playerName === myName);
+      let history = JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
+      let totalWon = 0;
+
+      myTickets.forEach(g => {
+        let hitsCount = 0;
+        g.numbers.forEach(n => {
+          if (drawnNumbers.includes(n)) hitsCount++;
+        });
+
+        let spotSize = g.numbers.length;
+        let winAmount = 0;
+
+        if (PAYTABLE[spotSize] && PAYTABLE[spotSize][hitsCount]) {
+          winAmount = g.bet * PAYTABLE[spotSize][hitsCount];
+          totalWon += winAmount;
+        }
+
+        history.unshift({
+          date: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+          numbers: g.numbers,
+          drawn: [...drawnNumbers],
+          bet: g.bet,
+          won: winAmount
+        });
+      });
+
+      if (history.length > 30) history = history.slice(0, 30);
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+
+      if (totalWon > 0) {
+        userBalance += totalWon;
+        updateBalanceDisplay();
+        alert(`እንኳን ደስ አለዎት! ${totalWon.toLocaleString()} ETB አሸንፈዋል!`);
+      }
+    }
+
+    updateBalanceDisplay();
+  </script>
+</body>
+</html>
