@@ -14,12 +14,26 @@ const userBalances = {};
 // 4. የቴሌግራም ቦት ማስጀመር
 const bot = new TelegramBot(TOKEN, { polling: true });
 
-// 5. Render Health Check እንዳያቋርጠው Express Server መክፈት
+// 5. Express Server - Health Check እና ለ Netlify App ባላንስ የሚያቀብል API
 const app = express();
 const PORT = process.env.PORT || 10000;
 
+// CORS ፈቃድ (Netlify App ባላንሱን በ API ለመጠየቅ እንዲችል።)
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  next();
+});
+
 app.get('/', (req, res) => {
-  res.send('Ethio Keno Bot with Admin Control is active!');
+  res.send('Ethio Keno Bot with Admin & App Balance Control is active!');
+});
+
+// 🌐 Netlify Keno App የተጫዋቹን ባላንስ የሚቀበልበት API Endpoint
+app.get('/api/balance/:userId', (req, res) => {
+  const userId = req.params.userId;
+  const balance = userBalances[userId] || 0;
+  res.json({ success: true, userId: userId, balance: balance });
 });
 
 app.listen(PORT, () => {
@@ -33,12 +47,15 @@ bot.onText(/\/start/, (msg) => {
 
   if (!userBalances[chatId]) userBalances[chatId] = 0;
 
+  // 👉 ለ Netlify App የተጫዋቹን Telegram ID በ URL parameter አያይዞ መላክ
+  const userGameUrl = `${GAME_WEB_APP_URL}?userId=${chatId}`;
+
   const welcomeText = `ሰላም ${firstName}! 👋\nወደ **Ethio Keno Game** እንኳን ደህና መጡ።\n\n💰 **የአሁኑ ባላንስዎ፦** ${userBalances[chatId]} ብር\n🆔 **የእርስዎ ID፦** \`${chatId}\``;
 
   const keyboard = {
     reply_markup: {
       inline_keyboard: [
-        [{ text: '🎮 Start Game (መጫወት)', web_app: { url: GAME_WEB_APP_URL } }],
+        [{ text: '🎮 Start Game (መጫወት)', web_app: { url: userGameUrl } }],
         [
           { text: '📥 Deposit (ገንዘብ ማስገባት)', callback_data: 'btn_deposit' },
           { text: '📤 Withdraw (ገንዘብ ማውጣት)', callback_data: 'btn_withdraw' }
@@ -124,7 +141,7 @@ bot.onText(/\/addmoney (\d+) (\d+)/, (msg, match) => {
   userBalances[targetUserId] += amountToAdd;
 
   bot.sendMessage(ADMIN_ID, `✅ ለ User ID \`${targetUserId}\` መጠን **${amountToAdd} ብር** ተጨምሯል።\n💰 አዲሱ ባላንስ፦ **${userBalances[targetUserId]} ብር**`, { parse_mode: 'Markdown' });
-  bot.sendMessage(targetUserId, `🎉 **መልካም ዜና!**\n\nበመለያዎ ላይ **${amountToAdd} ብร** ገቢ ሆኗል።\n💰 የአሁኑ ባላንስዎ፦ **${userBalances[targetUserId]} ብር**`);
+  bot.sendMessage(targetUserId, `🎉 **መልካም ዜና!**\n\nበመለያዎ ላይ **${amountToAdd} ብር** ገቢ ሆኗል።\n💰 የአሁኑ ባላንስዎ፦ **${userBalances[targetUserId]} ብር**`);
 });
 
 // /deductmoney USER_ID AMOUNT
