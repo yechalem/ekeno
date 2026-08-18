@@ -439,6 +439,14 @@
       renderSavedGames([]);
     });
 
+    // አድሚኑ deposit ሲያደርግ ከ Socket ጥሪ ከመጣ ቀጥታ ባላንሱን እንዲያድስ
+    socket.on('balanceUpdated', (data) => {
+      if (data && data.userId == userId) {
+        userBalance = parseFloat(data.newBalance);
+        updateBalanceDisplay();
+      }
+    });
+
     function calculateWinningsAndArchive() {
       let myName = tg?.initDataUnsafe?.user?.first_name || "ተጫዋች";
       let myTickets = activeTicketsCache.filter(t => t.playerName === myName);
@@ -478,9 +486,12 @@
       }
     }
 
-    // App ሲከፈት ባላንሱን ማሳየት እና ከ Server መጥራት
+    // 1. App ሲከፈት ባላንሱን ማሳየት እና ከ Server መጥራት
     updateBalanceDisplay();
     fetchServerBalance();
+
+    // 2. በየ 3 ሰከንዱ አውቶማቲክ ባላንሱን ከ Server እንዲያድስ ማድረግ (Auto-Sync)
+    setInterval(fetchServerBalance, 3000);
   </script>
 </body>
 </html>
