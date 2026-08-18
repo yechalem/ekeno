@@ -1,33 +1,39 @@
-// 1. የቴሌግራም ላይብረሪ ጥሪ አስተካክል
+// 1. ላይብረሪዎችን መጥራት
 const TelegramBotModule = require('node-telegram-bot-api');
 const TelegramBot = TelegramBotModule.default || TelegramBotModule;
 const express = require('express');
 
+// 2. መረጃዎች (Configs)
 const TOKEN = process.env.BOT_TOKEN || '8575247623:AAEbjBhY67yTBoNX3HKpblqncDEw_zwkQaA';
 const GAME_WEB_APP_URL = 'https://courageous-chimera-65cd3c.netlify.app';
+const ADMIN_ID = 686733543; // 👉 እዚህ ላይ የራስህን የቴሌግራም Numeric ID አስገባ
 
-// የቀረው የኮድህ ክፍል እንዳለ ይቀጥላል...
-// የቴሌግራም ቦት ማስጀመር
+// 3. ጊዚያዊ የባላንስ መያዣ (Database)
+const userBalances = {};
+
+// 4. የቴሌግራም ቦት ማስጀመር
 const bot = new TelegramBot(TOKEN, { polling: true });
 
-// Render Health Check እንዳያቋርጠው Express Server መክፈት
+// 5. Render Health Check እንዳያቋርጠው Express Server መክፈት
 const app = express();
 const PORT = process.env.PORT || 10000;
 
 app.get('/', (req, res) => {
-  res.send('Ethio Keno Bot is active!');
+  res.send('Ethio Keno Bot with Admin Control is active!');
 });
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 
-// /start ሲባል የሚወጣው ሜኑ
+// 6. /start ሲባል የሚወጣው ዋና ሜኑ
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   const firstName = msg.from.first_name || 'ተጫዋች';
 
-  const welcomeText = `ሰላም ${firstName}! 👋\nወደ **Ethio Keno Game** እንኳን ደህና መጡ።\n\nከታች ያሉትን አማራጮች በመጠቀም መጫወት ይችላሉ።`;
+  if (!userBalances[chatId]) userBalances[chatId] = 0;
+
+  const welcomeText = `ሰላም ${firstName}! 👋\nወደ **Ethio Keno Game** እንኳን ደህና መጡ።\n\n💰 **የአሁኑ ባላንስዎ፦** ${userBalances[chatId]} ብር\n🆔 **የእርስዎ ID፦** \`${chatId}\``;
 
   const keyboard = {
     reply_markup: {
@@ -37,7 +43,7 @@ bot.onText(/\/start/, (msg) => {
           { text: '📥 Deposit (ገንዘብ ማስገባት)', callback_data: 'btn_deposit' },
           { text: '📤 Withdraw (ገንዘብ ማውጣት)', callback_data: 'btn_withdraw' }
         ],
-        [{ text: '⚙️ Admin', callback_data: 'btn_admin' }]
+        [{ text: '💰 Balance Check (ባላንስ ማየት)', callback_data: 'btn_balance' }]
       ]
     },
     parse_mode: 'Markdown'
@@ -46,20 +52,95 @@ bot.onText(/\/start/, (msg) => {
   bot.sendMessage(chatId, welcomeText, keyboard);
 });
 
-// የቁልፎች ምላሽ
+// 7. የሜኑ ቁልፎች ምላሽ (Inline Buttons)
 bot.on('callback_query', (query) => {
   const chatId = query.message.chat.id;
   const data = query.data;
 
   if (data === 'btn_deposit') {
-    bot.sendMessage(chatId, '📥 **Deposit:**\n\nበቴሌብር ወይም ባንክ ገቢ ያድርጉ።\n\n📱 Telebirr: 09xxxxxxxx\n💳 CBE: 1000xxxxxxxxx');
+    bot.sendMessage(
+      chatId,
+      `📥 **ገንዘብ ገቢ ማድረጊያ (Deposit):**\n\n1. በቴሌብር ወይም ባንክ ሂሳቡን ያስገቡ፦\n📱 **Telebirr:** 0912345678\n💳 **CBE:** 1000123456789\n\n2. ክፍያ ከፈጸሙ በኋላ **የክፍያውን ደረሰኝ ፎቶ (Screenshot)** አሁን ለቦቱ ይላኩ።\n\n🆔 **የእርስዎ Telegram ID:** \`${chatId}\``,
+      { parse_mode: 'Markdown' }
+    );
   } else if (data === 'btn_withdraw') {
-    bot.sendMessage(chatId, '📤 **Withdraw:**\n\nየሚያወጡትን መጠን እና ስልክ ቁጥር ይጻፉ።');
-  } else if (data === 'btn_admin') {
-    bot.sendMessage(chatId, '⚙️ ይህ ክፍል ለአድሚን ብቻ የተፈቀደ ነው።');
+    bot.sendMessage(
+      chatId,
+      `📤 **ገንዘብ ማውጫ (Withdraw):**\n\nየሚያወጡትን መጠን እና የተቀባይ ስልክ ቁጥር በሚከተለው ፎርማት ይላኩ፦\n\n\`withdraw 200 Telebirr 0911xxxxxx\`\n\n*(ለምሳሌ፦ withdraw 200 Telebirr 0912345678)*`,
+      { parse_mode: 'Markdown' }
+    );
+  } else if (data === 'btn_balance') {
+    const balance = userBalances[chatId] || 0;
+    bot.sendMessage(chatId, `💰 **የአሁኑ ባላንስዎ፦** ${balance} ብር`);
   }
 
   bot.answerCallbackQuery(query.id);
+});
+
+// 8. ተጫዋቹ የ Deposit ደረሰኝ (Photo) ሲልክ ለአድሚኑ ማስተላለፍ
+bot.on('photo', (msg) => {
+  const chatId = msg.chat.id;
+  const photoId = msg.photo[msg.photo.length - 1].file_id;
+  const senderName = msg.from.first_name || 'ተጠቃሚ';
+
+  bot.sendPhoto(ADMIN_ID, photoId, {
+    caption: `📥 **አዲስ የ Deposit ደረሰኝ ደርሷል!**\n\n👤 **የላከው፦** ${senderName}\n🆔 **Telegram ID፦** \`${chatId}\`\n\nገንዘብ ለመጨመር፦\n\`/addmoney ${chatId} መጠን\``,
+    parse_mode: 'Markdown'
+  });
+
+  bot.sendMessage(chatId, '✅ ደረሰኝዎ ለአድሚን ደርሷል። ተመርምሮ ባላንስዎ ከተረጋገጠ በኋላ ገቢ ይደረግልዎታል!');
+});
+
+// 9. ተጫዋቹ Withdraw ጥያቄ ሲልክ ለአድሚኑ ማስተላለፍ
+bot.on('message', (msg) => {
+  const chatId = msg.chat.id;
+  const text = msg.text;
+
+  if (!text) return;
+
+  if (text.toLowerCase().startsWith('withdraw')) {
+    const senderName = msg.from.first_name || 'ተጠቃሚ';
+
+    bot.sendMessage(
+      ADMIN_ID,
+      `📤 **አዲስ የ Withdraw ጥያቄ!**\n\n👤 **ተጠቃሚ፦** ${senderName}\n🆔 **Telegram ID፦** \`${chatId}\`\n💬 **ዝርዝር፦** ${text}\n\nገንዘቡን ከላኩ በኋላ ከቦቱ ለመቀነስ፦\n\`/deductmoney ${chatId} መጠን\``,
+      { parse_mode: 'Markdown' }
+    );
+
+    bot.sendMessage(chatId, '✅ የ Withdraw ጥያቄዎ ለአድሚን ተልኳል። ክፍያው ሲፈጸም ባላንስዎ ይቀነሳል!');
+  }
+});
+
+// 10. አድሚኑ ብቻ የሚጠቀምባቸው ትዕዛዞች (ADMIN COMMANDS)
+
+// /addmoney USER_ID AMOUNT
+bot.onText(/\/addmoney (\d+) (\d+)/, (msg, match) => {
+  if (msg.chat.id !== ADMIN_ID) return;
+
+  const targetUserId = match[1];
+  const amountToAdd = parseInt(match[2]);
+
+  if (!userBalances[targetUserId]) userBalances[targetUserId] = 0;
+  userBalances[targetUserId] += amountToAdd;
+
+  bot.sendMessage(ADMIN_ID, `✅ ለ User ID \`${targetUserId}\` መጠን **${amountToAdd} ብር** ተጨምሯል።\n💰 አዲሱ ባላንስ፦ **${userBalances[targetUserId]} ብር**`, { parse_mode: 'Markdown' });
+  bot.sendMessage(targetUserId, `🎉 **መልካም ዜና!**\n\nበመለያዎ ላይ **${amountToAdd} ብร** ገቢ ሆኗል።\n💰 የአሁኑ ባላንስዎ፦ **${userBalances[targetUserId]} ብር**`);
+});
+
+// /deductmoney USER_ID AMOUNT
+bot.onText(/\/deductmoney (\d+) (\d+)/, (msg, match) => {
+  if (msg.chat.id !== ADMIN_ID) return;
+
+  const targetUserId = match[1];
+  const amountToDeduct = parseInt(match[2]);
+
+  if (!userBalances[targetUserId]) userBalances[targetUserId] = 0;
+
+  userBalances[targetUserId] -= amountToDeduct;
+  if (userBalances[targetUserId] < 0) userBalances[targetUserId] = 0;
+
+  bot.sendMessage(ADMIN_ID, `✅ ከ User ID \`${targetUserId}\` መጠን **${amountToDeduct} ብር** ተቀንሷል።\n💰 ቀሪ ባላንስ፦ **${userBalances[targetUserId]} ብር**`, { parse_mode: 'Markdown' });
+  bot.sendMessage(targetUserId, `💸 ከሂሳብዎ ላይ **${amountToDeduct} ብር** ተቀንሷል።\n💰 ቀሪ ባላንስዎ፦ **${userBalances[targetUserId]} ብር**`);
 });
 
 bot.on('polling_error', (err) => console.error(err));
