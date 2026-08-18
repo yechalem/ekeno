@@ -2,7 +2,6 @@
 const TelegramBot = require('node-telegram-bot-api');
 
 // 2. የቴሌግራም ቦት Token አስገባ (ከ BotFather የተቀበልከውን)
-// 'YOUR_TELEGRAM_BOT_TOKEN_HERE' በሚለው ቦታ ላይ ከ BotFather የተቀበልከውን Token አስገባ
 const TOKEN = process.env.BOT_TOKEN || '1234567890:ABCdefGHIjklMNOpqrsTUVwxyZ';
 
 // 3. የቦት ኢንስታንስ መፍጠር (polling: true በመጠቀም)
