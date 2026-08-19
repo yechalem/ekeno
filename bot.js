@@ -5,7 +5,7 @@ const express = require('express');
 
 // 2. መረጃዎች (Configs)
 const TOKEN = process.env.BOT_TOKEN || '8575247623:AAEbjBhY67yTBoNX3HKpblqncDEw_zwkQaA';
-const GAME_WEB_APP_URL = 'https://tiny-dasik-98c906.netlify.app';
+const GAME_WEB_APP_URL = 'https://keno-server-2.onrender.com/';
 const ADMIN_ID = 686733543; // 👉 እዚህ ላይ የራስህን የቴሌግራም Numeric ID አስገባ
 
 // 3. ጊዚያዊ የባላንስ መያዣ (Database)
